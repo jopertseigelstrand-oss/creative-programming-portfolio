@@ -12,9 +12,9 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- PixiJS draws everything generative into this one canvas, behind the page -->
+  <!-- Empty container where PixiJS injects its full-screen background canvas.
+  aria-hidden="true" hides decorative canvas visuals from screen readers. -->
   <div id="stage" aria-hidden="true"></div>
-
   <header class="top">
     <a class="logo" href="./">Liam Seigelstrand</a>
     <nav aria-label="Main">
@@ -32,7 +32,8 @@
       <p><a class="contact" href="mailto:25lise1@suni.se">Get in touch</a></p>
     </section>
 
-    <!-- Each data-motif names a drawing function in js/main.js -->
+    <!-- Project gallery section: each "art" div acts as a bounding box for PixiJS to draw into.
+         The data-motif attribute tells main.js which generative animation function to run inside each box. -->
     <section id="work" aria-label="Work">
       <ul class="grid">
         <li class="tile">
@@ -67,7 +68,7 @@
         </li>
       </ul>
     </section>
-
+    <!-- About section detailing the final course project -->
     <section id="about" class="about">
       <h2>about</h2>
       <div class="cols">
@@ -84,7 +85,7 @@
     <p>© 2026 Liam Seigelstrand</p>
     <p>move to push the field, click to send a ripple</p>
   </footer>
-
+  <!-- Loads PixiJS v8 from a CDN, followed by our main application script as an ES module -->
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.6.6/dist/pixi.min.js"></script>
   <script type="module" src="main.js"></script>
 </body>

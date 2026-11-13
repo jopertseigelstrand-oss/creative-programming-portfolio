@@ -1,9 +1,9 @@
 // =========================================================
-// Austin Franklin :: main.js
+// Liam Seigelstrand (adapted from Austin Franklins) :: main.js
 //
 // One PixiJS canvas sits behind the page and draws two things:
-//   1. a field of dots that the pointer pushes and clicks ripple through
-//   2. a generative image inside every project tile
+//   1. A grid of interactive dots that react to pointer movement and clicks
+//   2. Generative geometric animations inside each project tile
 //
 // Structure:
 //   setup -> colours -> input -> dot field -> motifs -> frame loop
@@ -11,7 +11,7 @@
 
 
 // ---------- Setup ----------
-
+// Create and asynchronously initialize the PixiJS application
 const app = new PIXI.Application();
 await app.init({
   resizeTo: window,
@@ -20,47 +20,50 @@ await app.init({
   resolution: Math.min(window.devicePixelRatio || 1, 2),
   autoDensity: true,
 });
+// Attach the generated <canvas> element inside the #stage container
 document.getElementById("stage").appendChild(app.canvas);
 
-// Two layers: drawn in this order, so tiles cover the dots
+// Create two separate Graphics layers: fieldLayer draws first (bottom), artLayer draws second (top)
 const fieldLayer = new PIXI.Graphics();
 const artLayer = new PIXI.Graphics();
 app.stage.addChild(fieldLayer, artLayer);
-
+// Detect if the user has enabled "Reduce Motion" in their OS accessibility settings
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 
 // ---------- Colours ----------
-// Read from the CSS variables so the canvas follows light and dark mode.
+// Reads CSS custom properties from :root so the PixiJS canvas automatically syncs with light/dark mode.
 
 const colours = {};
 
 function readColours() {
   const css = getComputedStyle(document.documentElement);
+  // Convert CSS hex strings (e.g., "#2b44d6") into numeric hex values (0x2b44d6) for PixiJS
   for (const name of ["ink", "muted", "accent", "tile"]) {
     colours[name] = new PIXI.Color(css.getPropertyValue(`--${name}`).trim()).toNumber();
   }
 }
-
+// Read initial colors on load, and re-read whenever the OS theme switches between light and dark
 readColours();
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", readColours);
 
 
 // ---------- Input ----------
-
+// Store pointer coordinates off-screen initially so dots aren't pushed before the user moves the mouse
 const pointer = { x: -9999, y: -9999 };
+// Array storing active click ripples: each object holds { x, y, born (timestamp) }
 const ripples = [];   // every click adds one: { x, y, born }
-
+// Update pointer position on mouse/touch move
 window.addEventListener("pointermove", (e) => {
   pointer.x = e.clientX;
   pointer.y = e.clientY;
 });
-
+// Spawn a new expanding ripple ring whenever the user clicks or taps
 window.addEventListener("pointerdown", (e) => {
   ripples.push({ x: e.clientX, y: e.clientY, born: performance.now() });
 });
 
-// Each tile keeps a hover value that eases between 0 and 1
+// Map every tile DOM element to a state object tracking its bounding element, motif name, and hover easing
 const tiles = [...document.querySelectorAll(".tile")].map((el) => {
   const tile = {
     box: el.querySelector(".art"),
@@ -75,8 +78,7 @@ const tiles = [...document.querySelectorAll(".tile")].map((el) => {
 
 
 // ---------- Dot field ----------
-// Every dot has a home position and a current position.
-// Forces push it away; a spring pulls it home again.
+// Physics grid: each dot has an anchor (homeX, homeY) and current position/velocity (x, y, vx, vy).
 
 const SPACING = 28;
 const PUSH_RADIUS = 150;
@@ -84,7 +86,7 @@ const RIPPLE_SPEED = 500;     // pixels per second
 const RIPPLE_LIFE = 2000;     // milliseconds
 
 let dots = [];
-
+// Populates the screen with a uniform grid of dot objects
 function buildField() {
   dots = [];
   for (let x = SPACING / 2; x < window.innerWidth; x += SPACING) {
@@ -94,30 +96,34 @@ function buildField() {
   }
 }
 
-// Push a dot away from a point, stronger when closer
-function pushAway(dot, fromX, fromY, radius, strength) {
+// Applies a radial repulsive force to a dot if it lies within `radius` of (fromX, fromY)function pushAway(dot, fromX, fromY, radius, strength) 
+{
   const dx = dot.x - fromX;
   const dy = dot.y - fromY;
   const distance = Math.hypot(dx, dy) || 1;
   if (distance < radius) {
+    // Force falls off linearly from `strength` at center to 0 at edge of radius
     const force = (1 - distance / radius) * strength;
     dot.vx += (dx / distance) * force;
     dot.vy += (dy / distance) * force;
   }
 }
-
+// Updates physics for every dot each frame
 function updateField(now) {
-  // Forget ripples that have faded out
+  // Remove expired ripples from the front of the queue
   while (ripples.length && now - ripples[0].born > RIPPLE_LIFE) ripples.shift();
 
   for (const dot of dots) {
+    // repel dots near the active pointer
     pushAway(dot, pointer.x, pointer.y, PUSH_RADIUS, 1.2);
 
-    // A ripple is a ring that grows; only dots near the ring get pushed
-    for (const ripple of ripples) {
+// Repel dots along the expanding perimeter of each active click ripple  
+for (const ripple of ripples) 
+{
       const age = now - ripple.born;
       const ringRadius = (age / 1000) * RIPPLE_SPEED;
       const fromRing = Math.abs(Math.hypot(dot.x - ripple.x, dot.y - ripple.y) - ringRadius);
+      // Only push dots within 20px of the ripple's wave front; fade force as ripple ages
       if (fromRing < 20) pushAway(dot, ripple.x, ripple.y, ringRadius + 20, 3 * (1 - age / RIPPLE_LIFE));
     }
 
@@ -128,23 +134,23 @@ function updateField(now) {
     dot.y += dot.vy;
   }
 }
-
+// Renders all dots onto fieldLayer
 function drawField() {
   fieldLayer.clear();
 
-  // Resting dots in grey, moving dots in the accent colour
-  const moving = [];
+// Separate displaced dots from stationary dots so they can be batch-filled in different colors  
+const moving = [];
   for (const dot of dots) {
     const offset = Math.abs(dot.x - dot.homeX) + Math.abs(dot.y - dot.homeY);
     if (offset > 3) moving.push(dot);
     else fieldLayer.rect(dot.x - 1, dot.y - 1, 2, 2);
   }
   fieldLayer.fill({ color: colours.muted, alpha: 0.4 });
-
+// Displaced dots: slightly larger (3x3px) and highlighted in the accent color
   for (const dot of moving) fieldLayer.rect(dot.x - 1.5, dot.y - 1.5, 3, 3);
   fieldLayer.fill(colours.accent);
 }
-
+// Initialize the dot grid and rebuild it whenever the window is resized
 buildField();
 window.addEventListener("resize", buildField);
 
@@ -164,7 +170,7 @@ function seededRandom(seed) {
     return seed / 2147483647;
   };
 }
-
+// Pre-generate 48 normalized coordinates and phase offsets for the 'scatter' motif
 const random = seededRandom(7);
 const scatterPoints = Array.from({ length: 48 }, () => ({ x: random(), y: random(), phase: random() * 6.28 }));
 
@@ -214,7 +220,7 @@ const motifs = {
       x: x + w * (0.1 + 0.8 * p.x) + Math.sin(t * 0.7 + p.phase) * 10,
       y: y + h * (0.1 + 0.8 * p.y) + Math.cos(t * 0.5 + p.phase) * 10,
     }));
-
+  // Draw connecting lines between nearby points when hovered
     if (hover > 0.01) {
       for (let i = 0; i < points.length; i++) {
         for (let j = i + 1; j < points.length; j++) {
@@ -289,17 +295,18 @@ const motifs = {
     g.fill(colours.ink);
   },
 };
-
+// Syncs PixiJS tile drawings with the HTML DOM layout positions
 function drawTiles(time) {
   artLayer.clear();
 
   for (const tile of tiles) {
+    // Smoothly interpolate hover value toward target (0 or 1)
     tile.hover += (tile.target - tile.hover) * 0.1;
 
     // Where is the tile on screen right now? Skip it if scrolled away.
     const r = tile.box.getBoundingClientRect();
     if (r.bottom < 0 || r.top > window.innerHeight) continue;
-
+    // Draw the solid tile background rectangle, then invoke its matching motif function
     artLayer.rect(r.left, r.top, r.width, r.height).fill(colours.tile);
     motifs[tile.motif](artLayer, r.left, r.top, r.width, r.height, time, tile.hover);
   }
@@ -309,8 +316,9 @@ function drawTiles(time) {
 // ---------- Frame loop ----------
 
 let time = 0;
-
+// Runs every animation frame
 app.ticker.add((ticker) => {
+  // Pause ambient motion if the user prefers reduced motion, unless actively hovering over a tile
   const anyHover = tiles.some((tile) => tile.target > 0);
   if (!reduceMotion || anyHover) time += ticker.deltaMS / 1000;
 
