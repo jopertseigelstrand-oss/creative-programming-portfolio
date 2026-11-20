@@ -1,5 +1,4 @@
 /* =========================================================
-   Austin Franklin :: style.css
    1. Colours and sizes
    2. Base
    3. Header
@@ -14,12 +13,13 @@
    One ink, one paper, one accent: the page reads like a printed score.
    main.js reads these same variables, so the canvas always matches. */
 :root {
-  color-scheme: light;
-  --paper: #ffffff;
-  --ink: #111214;
-  --muted: #6b6f73;
-  --accent: #2b44d6;
-  --tile: #f1f2f0;
+  color-scheme: dark;
+  --paper: #070a10;
+  --ink: #e8f1f8;
+  --muted: #7f92a6;
+  --accent: #38e8ff;
+  --tile: #0f1622;
+  --border: rgba(56, 232, 255, 0.16);
 
   --edge: clamp(1rem, 4vw, 3rem);
   --gap: clamp(1rem, 2.5vw, 2rem);
@@ -125,7 +125,31 @@ main { padding: 0 var(--edge); }
 }
 
 /* Empty box: Pixi paints the background and the motif inside it */
-.art { aspect-ratio: 4 / 3; }
+.art {
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--tile);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.tile:hover .art {
+  border-color: var(--accent);
+  box-shadow: 0 0 24px rgba(56, 232, 255, 0.22);
+}
+
+.tile:hover .art img {
+  transform: scale(1.03);
+}
 
 .tile h2 {
   font-size: 1.25rem;
@@ -141,6 +165,38 @@ main { padding: 0 var(--edge); }
 
 .tile:hover h2 { color: var(--accent); }
 
+
+/* ---------- 5b. Demo video ---------- */
+.demo {
+  padding-top: clamp(3rem, 8vh, 5rem);
+}
+
+.demo h2 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: -0.03em;
+  margin: 0 0 1.5rem;
+}
+
+.video-wrap {
+  max-width: 64rem;
+  aspect-ratio: 16 / 9;
+  background: var(--tile);
+  overflow: hidden;
+  box-shadow: 0 0 32px rgba(56, 232, 255, 0.1);
+}
+
+.video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.caption {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
 
 /* ---------- 6. About ---------- */
 .about { padding: clamp(4rem, 12vh, 8rem) 0 3rem; }
